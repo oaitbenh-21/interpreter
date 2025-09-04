@@ -1,75 +1,116 @@
 #[derive(PartialEq, Debug)]
-enum Status {
-    Quotes(char),
-    Word,
-    Operation(char),
-    Null,
+enum ParseState {
+    InQuotes(char),
+    InBrackets(char),
+    InWord,
+    InOperation(char),
+    Idle,
 }
 
-struct Code {
+struct CommandParser {
     tokens: Vec<String>,
 }
 
-impl Code {
-    fn new(input: &str) -> Code {
-        let mut tkns = Code {
+impl CommandParser {
+    fn parse(input: &str) -> CommandParser {
+        let mut parser = CommandParser {
             tokens: Vec::new(),
         };
-        let mut status: Status = Status::Null;
-        let chars: Vec<char> = input.chars().collect::<Vec<char>>();
-        let mut word: String = String::new();
-        let input_len = chars.len();
-        let mut index: usize = 0;
-        while index < input_len {
-            match chars[index] {
+        let mut state = ParseState::Idle;
+        let mut bracket_depth = 0;
+
+        let chars: Vec<char> = input.chars().collect();
+        let mut current_token = String::new();
+        let len = chars.len();
+        let mut index = 0;
+
+        while index < len {
+            let ch = chars[index];
+
+            match ch {
                 '"' | '\'' => {
-                    if matches!(status, Status::Quotes(c) if c == chars[index]) {
-                        tkns.tokens.push(word.clone());
-                        status = Status::Null;
-                        word = String::new();
-                    } else if matches!(status, Status::Quotes(_)) {
-                        word.push(chars[index]);
+                    if matches!(state, ParseState::InQuotes(q) if q == ch) {
+                        parser.tokens.push(current_token.clone());
+                        state = ParseState::Idle;
+                        current_token.clear();
+                    } else if matches!(state, ParseState::InQuotes(_)) || matches!(state, ParseState::InBrackets(_)) {
+                        current_token.push(ch);
                     } else {
-                        status = Status::Quotes(chars[index]);
+                        state = ParseState::InQuotes(ch);
                     }
                 }
+
+                '{' | '}' | '(' | ')' => {
+                    if (ch == '(' || ch == '{') && !matches!(state, ParseState::InQuotes(_)) && bracket_depth == 0 {
+                        parser.tokens.push(current_token);
+                        current_token = String::new();
+                        state = ParseState::InBrackets(ch);
+                        bracket_depth += 1;
+                        current_token.push(ch);
+                    } else if matches!(state, ParseState::InBrackets(open)
+                        if (open == '{' && ch == '}') || (open == '(' && ch == ')')) && bracket_depth == 1 {
+                        current_token.push(ch);
+                        parser.tokens.push(current_token.clone());
+                        state = ParseState::Idle;
+                        current_token.clear();
+                        bracket_depth -= 1;
+                    } else if matches!(state, ParseState::InBrackets(_)) && (ch == '}' || ch == ')') && bracket_depth > 1 {
+                        bracket_depth -= 1;
+                        current_token.push(ch);
+                    } else if (ch == '(' || ch == '{') && matches!(state, ParseState::InBrackets(_)) {
+                        bracket_depth += 1;
+                        current_token.push(ch);
+                    }
+                }
+
                 '|' | '&' | '>' | '<' | ';' => {
-                    if matches!(status, Status::Quotes(_)) || matches!(status, Status::Operation(c) if c == chars[index]) {
-                        word.push(chars[index]);
-                    } else if status != Status::Null {
-                        tkns.tokens.push(word.clone());
-                        word = String::new();
+                    if matches!(state, ParseState::InQuotes(_))
+                        || matches!(state, ParseState::InBrackets(_))
+                        || matches!(state, ParseState::InOperation(op) if op == ch) {
+                        current_token.push(ch);
+                    } else if state != ParseState::Idle {
+                        parser.tokens.push(current_token.clone());
+                        current_token.clear();
                     }
-                    if status == Status::Word || status == Status::Null {
-                        status = Status::Operation(chars[index]);
-                        word.push(chars[index]);
+
+                    if state == ParseState::InWord || state == ParseState::Idle {
+                        state = ParseState::InOperation(ch);
+                        current_token.push(ch);
                     }
                 }
-                ' ' if word.len() != 0 && !matches!(status, Status::Quotes(_)) => {
-                    tkns.tokens.push(word.clone());
-                    word = String::new();
+
+                ' ' if !current_token.is_empty()
+                    && !matches!(state, ParseState::InQuotes(_))
+                    && !matches!(state, ParseState::InBrackets(_)) =>
+                {
+                    parser.tokens.push(current_token.clone());
+                    current_token.clear();
                 }
+
                 _ => {
-                    if chars[index] != ' ' || matches!(status, Status::Quotes(_)){
-                        if matches!(status, Status::Operation(_)) && word != "" {
-                                tkns.tokens.push(word.clone());
-                                word = String::new();
+                    if ch != ' ' || matches!(state, ParseState::InQuotes(_)) || matches!(state, ParseState::InBrackets(_)) {
+                        if matches!(state, ParseState::InOperation(_)) && !current_token.is_empty() {
+                            parser.tokens.push(current_token.clone());
+                            current_token.clear();
                         }
-                        if !matches!(status, Status::Quotes(_)) {
-                                status = Status::Word;
+                        if !matches!(state, ParseState::InQuotes(_)) && !matches!(state, ParseState::InBrackets(_)) {
+                            state = ParseState::InWord;
                         }
-                        word.push(chars[index]);
+                        current_token.push(ch);
                     }
                 }
             }
+
             index += 1;
         }
-        if word.len() != 0 {
-            tkns.tokens.push(word.clone());
+
+        if !current_token.is_empty() {
+            parser.tokens.push(current_token);
         }
-        tkns.tokens = tkns.tokens.clone().into_iter().filter(|s| s != "").collect();
-        println!("{:?}", tkns.tokens);
-        tkns
+
+        parser.tokens = parser.tokens.into_iter().filter(|s| !s.is_empty()).collect();
+        println!("{:?}", parser.tokens);
+        parser
     }
 }
 
@@ -81,16 +122,18 @@ fn main() {
         "echo \"Hello, World!\" | tee log.txt",
         "mkdir new_folder && cd new_folder",
         "rm -rf old_folder &",
-        "VAR=value",
+        "let VAR=value",
         "echo $VAR",
         "command $(subcommand)",
         "find . -name \"*.py\" -exec grep \"def \" {} \\;",
         "la|ls",
-        "ls -l | grep file; la"
+        "ls -l | grep file; la",
+	"func main(dsfls) sdfs{ ls -l; cd /; read;}",
+	"for ((i = 0 ; i < 100 ; i++)); do echo $i done"
     ];
     for cmd in commands {
         println!("{}", cmd);
-        let _tkn = Code::new(cmd);
+        let _ = CommandParser::parse(cmd);
         println!();
     }
 }
