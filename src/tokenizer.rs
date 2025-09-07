@@ -25,18 +25,18 @@ enum Token {
     Command(Cmd),
     Parentheses(String),
     Func(Function),
-    Scope(Vec<Token>),
+    Scope(String),
 }
 
-pub struct Loop<T> {
-    head: (String, (String, T), Box<Token>),
-    body: Vec<Tokens>,
+pub struct Loop {
+    head: String,
+    body: String,
 }
 
 pub struct Function {
     name: String,
-    arg: Vec<String>,
-    body: Vec<Token>,
+    arg: String,
+    body: String,
 }
 
 impl Tokenizer {
@@ -114,6 +114,7 @@ impl Tokenizer {
         println!("{:?}", result.elements);
         result
     }
+
     pub fn tokenize(&mut self) -> Vec<Token> {
         let mut token_state = TokenState::Null;
         let mut currly_brackets_depth = 0;
@@ -121,7 +122,6 @@ impl Tokenizer {
         let mut current_token: Token;
         let mut word = String::new();
         let mut tokens = Vec::new();
-
         for str_token in &self.elements {
             match str_token.as_str() {
                 "(" | "((" => {
@@ -130,18 +130,17 @@ impl Tokenizer {
                         if parentheses_depth == 1 {
                             token_state = TokenState::Parentheses;
                         } else {
-                            word.push_str(str_token);
+                            word.push_str(str_token + " ");
                         }
                     }
                 }
-
                 "{" => {
                     if parentheses_depth == 0 {
                         currly_brackets_depth += 1;
                         if currly_brackets_depth == 1 {
                             token_state = TokenState::Scope;
                         } else {
-                            word.push_str(str_token);
+                            word.push_str(str_token + " ");
                         }
                     }
                 }
@@ -152,7 +151,7 @@ impl Tokenizer {
                             token_state = TokenState::Null;
                             // Finish and store the token
                         } else {
-                            word.push_str(str_token);
+                            
                         }
                     }
                 }
