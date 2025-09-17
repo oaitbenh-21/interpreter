@@ -29,6 +29,10 @@ impl Lexer {
                     } else if matches!(state, ParseState::Quote(_)) {
                         buffer.push(chars[index]);
                     } else {
+                        if matches!(state, ParseState::Operator(_)) {
+                            lexer.lexemes.push(buffer.clone());
+                            buffer.clear();
+                        }
                         state = ParseState::Quote(chars[index]);
                     }
                 }

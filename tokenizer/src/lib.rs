@@ -19,6 +19,7 @@ pub fn evaluate(user_input: &str) {
                     cmds.push(to_cmd(c.clone()));
                 }
             }
+            println!("pipe: {:?}", cmds);
             exec(cmds);
         } else if let AstNode::Command(command) = node && command.program.len() != 0 {
             exec(vec![to_cmd(command)]);
