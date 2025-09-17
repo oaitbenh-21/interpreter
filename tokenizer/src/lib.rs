@@ -31,6 +31,7 @@ fn to_cmd(command: Command) -> Cmd {
     Cmd {
         cmd: command.program,
         args: command.arguments,
+        background: command.background,
         stdin: Box::new(io::stdin()),
         stdout: Box::new(io::stdout()),
         stderr: Box::new(io::stderr()),

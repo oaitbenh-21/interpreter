@@ -22,6 +22,7 @@ pub struct Cmd {
     pub stdin: Box<dyn Read>,
     pub stdout: Box<dyn Write>,
     pub stderr: Box<dyn Write>,
+    pub background: bool,
 }
 
 impl Debug for Cmd {
@@ -38,9 +39,10 @@ impl Cmd {
         args: Vec<String>,
         stdin: Box<dyn Read>,
         stdout: Box<dyn Write>,
-        stderr: Box<dyn Write>
+        stderr: Box<dyn Write>,
+        background: bool
     ) -> Self {
-        Self { cmd, args, stdin, stdout, stderr }
+        Self { cmd, args, stdin, stdout, stderr, background }
     }
 }
 

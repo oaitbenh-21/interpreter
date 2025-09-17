@@ -5,6 +5,7 @@ pub use lexing::Lexer;
 pub struct Command {
     pub program: String,
     pub arguments: Vec<String>,
+    pub background: bool,
 }
 
 #[derive(PartialEq, Debug, Clone)]
@@ -20,6 +21,7 @@ impl AstNode {
         let mut current_cmd: Command = Command {
             program: String::new(),
             arguments: Vec::new(),
+            background: false,
         };
         let mut current_token: AstNode = AstNode::None;
         let mut inside_pipeline: bool = false;
@@ -38,6 +40,7 @@ impl AstNode {
                     current_cmd = Command {
                         program: String::new(),
                         arguments: Vec::new(),
+                        background: false,
                     };
                 }
                 "|" => {
@@ -56,7 +59,29 @@ impl AstNode {
                     current_cmd = Command {
                         program: String::new(),
                         arguments: Vec::new(),
+                        background: false,
                     };
+                }
+                "&" => {
+                    if current_cmd.program.len() != 0 {
+                        current_cmd.background = true;
+                        if
+                            inside_pipeline &&
+                            let AstNode::Pipeline(pipeline_cmds) = &mut current_token
+                        {
+                            pipeline_cmds.push(current_cmd.clone());
+                            sequence.push(current_token.clone());
+                            inside_pipeline = false;
+                        } else {
+                            sequence.push(AstNode::Command(current_cmd.clone()));
+                        }
+                        current_token = AstNode::None;
+                        current_cmd = Command {
+                            program: String::new(),
+                            arguments: Vec::new(),
+                            background: false,
+                        };
+                    }
                 }
                 _ => {
                     if !current_cmd.program.is_empty() {
