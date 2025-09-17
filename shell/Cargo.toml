@@ -1,0 +1,11 @@
+[package]
+name = "shell"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+tokenizer = {path="../tokenizer"}
+dotenvy = "0.15" 
+ctrlc = "3.4.7"
+rustyline = "17.0.1"
+colored = "3.0.0"
