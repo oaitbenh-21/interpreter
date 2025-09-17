@@ -1,8 +1,8 @@
 use std::env;
-use std::path::{Path, PathBuf};
-use std::process::{Child, Command, Stdio};
+use std::path::{ Path, PathBuf };
+use std::process::{ Child, Command, Stdio };
 
-pub use commands::{Cmd, Registry};
+pub use commands::{ Cmd, Registry };
 
 pub fn exec(commands: Vec<Cmd>) {
     let mut prev_stdout = None;
@@ -33,20 +33,16 @@ pub fn exec(commands: Vec<Cmd>) {
             None => Stdio::inherit(),
         };
 
-        let stdout = if cmd_iter.peek().is_some() {
-            Stdio::piped()
-        } else {
-            Stdio::inherit()
-        };
-        let mut child = match Command::new(&executable)
-            .args(&cmd.args)
-            .stdin(stdin)
-            .stdout(stdout)
-            .spawn()
+        let stdout = if cmd_iter.peek().is_some() { Stdio::piped() } else { Stdio::inherit() };
+        let mut child = match
+            Command::new(&executable).args(&cmd.args).stdin(stdin).stdout(stdout).spawn()
         {
-            Ok(child) => child,
+            Ok(child) if !cmd.background => child,
             Err(err) => {
                 eprintln!("failed to execute '{}': {}", cmd.cmd, err);
+                continue;
+            }
+            _ => {
                 continue;
             }
         };
