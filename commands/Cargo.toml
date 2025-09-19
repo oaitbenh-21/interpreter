@@ -5,3 +5,4 @@ edition = "2024"
 
 [dependencies]
 colored = "3.0.0"
+procfs = "0.18.0"

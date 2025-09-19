@@ -1,12 +1,15 @@
 use std::env;
+use std::sync::Arc;
 use std::path::{ Path, PathBuf };
 use std::process::{ Child, Command, Stdio };
+use std::fs::{ OpenOptions, File };
+use std::sync::Mutex;
 
-pub use commands::{ Cmd, Registry };
+pub use commands::{ Cmd, Registry, jobs };
 
 pub fn exec(commands: Vec<Cmd>) {
     let mut prev_stdout = None;
-    let mut children: Vec<Child> = Vec::new();
+    let mut children: Vec<Arc<Mutex<Child>>> = Vec::new();
     let mut cmd_iter = commands.into_iter().peekable();
 
     while let Some(cmd) = cmd_iter.next() {
@@ -33,8 +36,19 @@ pub fn exec(commands: Vec<Cmd>) {
             None => Stdio::inherit(),
         };
 
-        let stdout = if cmd_iter.peek().is_some() { Stdio::piped() } else { Stdio::inherit() };
-        let mut child = match
+        let stdout = if cmd_iter.peek().is_some() {
+            Stdio::piped()
+        } else if cmd.background {
+            let output: Result<File, _> = OpenOptions::new().write(true).open("/dev/null");
+            let file = match output {
+                Ok(f) => Stdio::from(f),
+                Err(_) => Stdio::inherit(),
+            };
+            file
+        } else {
+            Stdio::inherit()
+        };
+        let child = match
             Command::new(&executable).args(&cmd.args).stdin(stdin).stdout(stdout).spawn()
         {
             Ok(child) if !cmd.background => child,
@@ -46,12 +60,12 @@ pub fn exec(commands: Vec<Cmd>) {
                 continue;
             }
         };
-
-        prev_stdout = child.stdout.take();
-        children.push(child);
+        let child_arc = Arc::new(Mutex::new(child));
+        prev_stdout = child_arc.lock().unwrap().stdout.take();
+        children.push(child_arc);
     }
-    for mut child in children {
-        if let Err(err) = child.wait() {
+    for child in children {
+        if let Err(err) = child.lock().unwrap().wait() {
             eprintln!("failed while waiting for process: {}", err);
         }
     }
