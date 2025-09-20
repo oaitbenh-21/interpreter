@@ -81,6 +81,9 @@ impl AstNode {
                             arguments: Vec::new(),
                             background: false,
                         };
+                    } else {
+                        println!("parse error near `&'");
+                        return Vec::new();
                     }
                 }
                 _ => {
